@@ -1,7 +1,7 @@
 -- Create from scratch
-DROP DATABASE cartdb3;
-create database cartdb3;
-use cartdb3;
+DROP DATABASE cartdb;
+create database cartdb;
+use cartdb;
 
 create table product (
     id int not null AUTO_INCREMENT,
@@ -26,7 +26,7 @@ create table cart (
     foreign key (product_id) references product(id)
 );
 
-insert into cart (product_id, quantity, user_id) values 
+insert into cart (product_id, quantity) values 
     ((select id from product where name = "Pineapple Tart"), 5), 
     ((select id from product where name = "Mango"), 2), 
     ((select id from product where name = "Pear"), 6);
