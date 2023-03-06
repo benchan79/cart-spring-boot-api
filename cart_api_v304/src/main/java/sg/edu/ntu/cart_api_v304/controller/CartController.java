@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,29 +31,30 @@ public class CartController {
   @GetMapping
   public ResponseEntity<List<Cart>> findAll() {
     List<Cart> carts = (List<Cart>) cartRepository.findAll();
-    if (carts.size() == 0) {
+    if (carts.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
     return ResponseEntity.ok().body(carts);
   }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<Cart> findById(@PathVariable Integer id) {
-    Optional<Cart> cartOptional = cartRepository.findById(id);
-    if (cartOptional.isPresent()) {
-      return ResponseEntity.ok().body(cartOptional.get());
-    }
-    return ResponseEntity.notFound().build();
-  }
-
   @PostMapping("/add/{productId}")
-  public ResponseEntity<Cart> incrementQuantity(@PathVariable Integer productId) {
+  public ResponseEntity<Cart> incrementQuantity(@PathVariable Integer productId, @RequestParam Optional<Integer> quantity) {
     Optional<Cart> cartToUpdateOptional = cartRepository.findByProductId(productId);
     if (!cartToUpdateOptional.isPresent()) {
-        return ResponseEntity.notFound().build();
+      Optional<Product> productToAddOptional = productRepository.findById(productId);
+      if (!productToAddOptional.isPresent()) {
+        return ResponseEntity.badRequest().build();
+      } else {
+        Product productToAdd = productToAddOptional.get();
+        Cart cartToAdd = new Cart();
+        cartToAdd.setProduct(productToAdd);
+        cartToAdd.setQuantity(quantity.orElseGet(() -> 1));
+        cartRepository.save(cartToAdd);
+        return ResponseEntity.ok().body(cartToAdd);
+      }
     }
     Cart cartToUpdate = cartToUpdateOptional.get();
-    cartToUpdate.setQuantity(cartToUpdate.getQuantity() + 1);
+    cartToUpdate.setQuantity(quantity.orElseGet (() -> cartToUpdate.getQuantity() + 1));
     cartRepository.save(cartToUpdate);
     return ResponseEntity.ok().body(cartToUpdate);
   }
@@ -61,28 +63,25 @@ public class CartController {
   public ResponseEntity<Cart> decrementQuantity(@PathVariable Integer productId) {
     Optional<Cart> cartToUpdateOptional = cartRepository.findByProductId(productId);
     if (!cartToUpdateOptional.isPresent()) {
-      return ResponseEntity.notFound().build();
+      return ResponseEntity.badRequest().build();
     }
     Cart cartToUpdate = cartToUpdateOptional.get();
-    if (cartToUpdate.getQuantity() <= 0) {
-      return ResponseEntity.badRequest().build();
+    if (cartToUpdate.getQuantity() == 1) {
+      cartRepository.deleteById(cartToUpdate.getId());
+      return ResponseEntity.ok().build();
     }
     cartToUpdate.setQuantity(cartToUpdate.getQuantity() - 1);
     cartRepository.save(cartToUpdate);
     return ResponseEntity.ok().body(cartToUpdate);
   }
 
-  @PostMapping("/clear/{productId}")
-  public ResponseEntity<Cart> clearQuantity(@PathVariable Integer productId) {
-    Optional<Cart> cartToClearOptional = cartRepository.findByProductId(productId);
-    if (!cartToClearOptional.isPresent()) {
-      return ResponseEntity.notFound().build();
+  @PostMapping("/clear")
+  public ResponseEntity<List<Cart>> clear() {
+    List<Cart> carts = (List<Cart>) cartRepository.findAll();
+    if (carts.isEmpty()) {
+      return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
     }
-    Cart cartToClear = cartToClearOptional.get();
-    // cartRepository.deleteById(cartToClear.getId());
-    // return ResponseEntity.ok().build();
-    cartToClear.setQuantity(0);
-    cartRepository.save(cartToClear);
-    return ResponseEntity.ok().body(cartToClear);
+    cartRepository.deleteAll();
+    return ResponseEntity.ok().build();
   }
 }
